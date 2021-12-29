@@ -1,7 +1,4 @@
-﻿#if !(WIN64 || WIN86)
-#define UNLOCKED
-#endif
-using System;
+﻿using System;
 using System.IO;
 using System.Management;
 using System.Threading.Tasks;
@@ -35,9 +32,21 @@ namespace PvBackUps.FileEventHandles {
                 return;
             }
             
+            _logger.LogInformation("Find directory '{Directory}' to save file '{File}'", _directoryInfo.FullName, e.Name);
+            Task.Run(() => {
+                var destFileName = Path.Combine(_directoryInfo.FullName, e.Name!);
+                File.Copy(e.FullPath, destFileName, false);
+                return destFileName;
+            }).ContinueWith(task => {
+                if (task.IsFaulted || task.IsCanceled) {
+                    string msg = task.Exception?.Message ?? "No exception";
+                    _logger.LogError("Failed save file '{File}' with Exception: {Ex}", e.FullPath, msg);
+                    return;
+                }
+                _logger.LogInformation("Save file '{File}' was successful!", task.Result);
+            });
         }
-
-
+        
         private bool TryGetDirectory(out DirectoryInfo directoryInfo) {
             if (_directoryInfo?.Exists ?? false) {
                 directoryInfo = _directoryInfo;
@@ -115,10 +124,11 @@ namespace PvBackUps.FileEventHandles {
         }
 
         private bool PathIsValid(in string path) {
+            if (!path.Contains(":")) {
+                return false;
+            }
             try {
-                var validPath = Path.GetFullPath(path);
-
-                return !string.IsNullOrEmpty(validPath);
+                return !string.IsNullOrEmpty(Path.GetFullPath(path));
             } catch {
                 _logger.LogWarning("Path is invalid: '{Path}'", path);
                 return false;

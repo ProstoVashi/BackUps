@@ -41,6 +41,7 @@ namespace PvBackUps {
             if (!_extensions.Contains(extension)) {
                 _logger.LogInformation("Handle rename from '{OldName}' to '{NewName}', but extension is not appropriate {Extensions}",
                     e.OldFullPath, e.FullPath, _concatenatedExtensions);
+                return;
             }
             
             foreach (var eventHandler in _fileEventHandlers) {
