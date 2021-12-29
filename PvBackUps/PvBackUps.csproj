@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+        <UserSecretsId>dotnet-PvBackUps-4EDC5B4C-6571-4509-8F1B-DEA652304756</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommandLineParser" Version="2.8.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="5.0.1" />
+        <PackageReference Include="System.Management" Version="5.0.0" />
+    </ItemGroup>
+</Project>

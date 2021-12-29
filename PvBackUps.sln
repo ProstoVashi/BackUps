@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PvBackUps", "PvBackUps\PvBackUps.csproj", "{F95CF1BA-4652-4F20-AEB4-980A1A1921B1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox", "Sandbox\Sandbox.csproj", "{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F95CF1BA-4652-4F20-AEB4-980A1A1921B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F95CF1BA-4652-4F20-AEB4-980A1A1921B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F95CF1BA-4652-4F20-AEB4-980A1A1921B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F95CF1BA-4652-4F20-AEB4-980A1A1921B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
