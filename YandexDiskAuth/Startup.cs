@@ -33,7 +33,8 @@ namespace YandexDiskAuth {
             });
 
             services.Configure<YandexAppSettings>(Configuration.GetSection(nameof(YandexAppSettings)));
-            services.AddScoped<AuthYandexService>();
+            services.Configure<TokenStorageSettings>(Configuration.GetSection(nameof(TokenStorageSettings)));
+            services.AddTransient<AuthYandexService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

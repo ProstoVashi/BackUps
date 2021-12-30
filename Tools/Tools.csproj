@@ -14,6 +14,9 @@
       <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60">
         <HintPath>C:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\5.0.13\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
       </Reference>
+      <Reference Include="Microsoft.Win32.Registry, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+        <HintPath>C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.13\Microsoft.Win32.Registry.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
 </Project>
