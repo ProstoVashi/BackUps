@@ -1,14 +1,17 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RestSharp;
-using RestSharp.Serializers.SystemTextJson;
 using Tools.Utils;
 using YandexDiskAuth.Configs;
 
 namespace YandexDiskAuth.Services {
     public class AuthYandexService {
         private const string BASE_AUTH_URL = "oauth.yandex.ru";
+        private static readonly TimeSpan AutoCloseAuthProcess = TimeSpan.FromMinutes(5);
         
         private readonly ILogger<AuthYandexService> _logger;
         private readonly IRestClient _authClient;
@@ -22,19 +25,33 @@ namespace YandexDiskAuth.Services {
 
 
         /// <summary>
-        /// Запрашивает код подтвержения
+        /// Запрашивает код подтвержения. Перенаправляет в бразуер для подтверждения действий
         /// </summary>
         /// <returns>Возвращает результат, был ли запрос удачным</returns>
         public async Task<bool> RequestCodeAsync() {
-            var request = new RestRequest("authorize", Method.GET);
-            request.AddQueryParameter("response_type", "code")
-                   .AddQueryParameter("client_id", _yandexAppSettings.ClientId)
-                   .AddQueryParameter("device_id", _yandexAppSettings.DeviceId);
+            var sb = new StringBuilder();
+            sb.Append("https://");
+            sb.Append(BASE_AUTH_URL);
+            sb.Append("/authorize?");
 
-            var requestCodeResponse = await ExceptionHandler.SafetyExec(() => _authClient.ExecuteAsync(request),
-                                                                        _logger, false);
+            void AddQueryParam(in string key, in string value, bool hasNext = true) {
+                sb.Append(key);
+                sb.Append('=');
+                sb.Append(value);
+                if (hasNext) {
+                    sb.Append('&');
+                }
+            }
+            AddQueryParam("response_type", "code");
+            AddQueryParam("client_id", _yandexAppSettings.ClientId);
+            AddQueryParam("device_id", _yandexAppSettings.DeviceId);
 
-            return requestCodeResponse?.IsSuccessful ?? false;
+            using var cancelTokenSource = new CancellationTokenSource(AutoCloseAuthProcess);
+            using var process = System.Diagnostics.Process.Start(sb.ToString());
+            var task = process.WaitForExitAsync(cancelTokenSource.Token);
+            await task;
+
+            return task.IsCompletedSuccessfully;
         }
     }
 }
