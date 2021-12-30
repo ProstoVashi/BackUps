@@ -1,13 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Management;
+using Tools.Utils;
 
 namespace Sandbox {
     static class Program {
         static void Main(string[] args) {
-            LocalCopySandbox.Invoke();
+            //LocalCopySandbox.Invoke();
+            //RegisterHelper.SetValue(RegisterHelper.Root, "SOFTWARE/Test.some_value", "value");
+            Console.WriteLine($"Value: '{RegisterHelper.GetValue(RegisterHelper.Root, "SOFTWARE/Test.some_value")}'");
         }
     }
 }

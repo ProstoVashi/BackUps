@@ -4,6 +4,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PvBackUps", "PvBackUps\PvBa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox", "Sandbox\Sandbox.csproj", "{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YandexDiskAuth", "YandexDiskAuth\YandexDiskAuth.csproj", "{CF776ED2-7663-4897-8BCE-513FC42CF322}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tools", "Tools\Tools.csproj", "{19D6A06F-BB42-4D43-8647-56209505BFEC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +22,13 @@ Global
 		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AE2EE24B-2B73-475D-9F6E-FC5BC9236CAC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF776ED2-7663-4897-8BCE-513FC42CF322}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF776ED2-7663-4897-8BCE-513FC42CF322}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF776ED2-7663-4897-8BCE-513FC42CF322}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF776ED2-7663-4897-8BCE-513FC42CF322}.Release|Any CPU.Build.0 = Release|Any CPU
+		{19D6A06F-BB42-4D43-8647-56209505BFEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19D6A06F-BB42-4D43-8647-56209505BFEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19D6A06F-BB42-4D43-8647-56209505BFEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19D6A06F-BB42-4D43-8647-56209505BFEC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
