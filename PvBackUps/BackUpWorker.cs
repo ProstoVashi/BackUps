@@ -11,6 +11,9 @@ using PvBackUps.FileEventHandles;
 using PvBackUps.FileEventHandles.Interfaces;
 
 namespace PvBackUps {
+    /// <summary>
+    /// Base worker that handle file-rename events and notifies about it
+    /// </summary>
     public class BackUpWorker : BackgroundService {
         private readonly ILogger<BackUpWorker> _logger;
         private readonly FileSystemWatcher _watcher;
@@ -35,7 +38,25 @@ namespace PvBackUps {
             
             _watcher.Renamed += OnRenamed;  
         }
+        
+        /// <summary>
+        /// Start listening file-rename events in specific folder for specific files' extensions 
+        /// </summary>
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
+            _logger.LogInformation("Service started");
+            _watcher.EnableRaisingEvents = true;
 
+            var tcs = new TaskCompletionSource<bool>();
+            stoppingToken.Register(s => ((TaskCompletionSource<bool>)s).SetResult(true), tcs);
+            await tcs.Task;
+
+            
+            _logger.LogInformation("Service stopped");
+        }
+
+        /// <summary>
+        /// Handle fire-rename event. Check appropriate extensions and notifies 
+        /// </summary>
         private void OnRenamed(object sender, RenamedEventArgs e) {
             var extension = e.FullPath.Split('.').Last();
             if (!_extensions.Contains(extension)) {
@@ -47,18 +68,6 @@ namespace PvBackUps {
             foreach (var eventHandler in _fileEventHandlers) {
                 eventHandler.OnRenamed(sender, e);
             }
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-            _logger.LogInformation("Service started");
-            _watcher.EnableRaisingEvents = true;
-
-            var tcs = new TaskCompletionSource<bool>();
-            stoppingToken.Register(s => ((TaskCompletionSource<bool>)s).SetResult(true), tcs);
-            await tcs.Task;
-
-            
-            _logger.LogInformation("Service stopped");
         }
 
         public override void Dispose() {

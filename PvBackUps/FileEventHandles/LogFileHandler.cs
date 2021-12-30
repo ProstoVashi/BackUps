@@ -3,6 +3,9 @@ using Microsoft.Extensions.Logging;
 using PvBackUps.FileEventHandles.Interfaces;
 
 namespace PvBackUps.FileEventHandles {
+    /// <summary>
+    /// File event handler to log out info about it
+    /// </summary>
     public class LogFileHandler : IFileEventHandler {
         private readonly ILogger<LogFileHandler> _logger;
 

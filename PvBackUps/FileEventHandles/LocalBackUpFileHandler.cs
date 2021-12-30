@@ -8,8 +8,11 @@ using PvBackUps.FileEventHandles.Interfaces;
 using PvBackUps.Utils.Extensions;
 
 namespace PvBackUps.FileEventHandles {
+    /// <summary>
+    /// File event handler to write it on local storage
+    /// </summary>
     public class LocalBackUpFileHandler : IFileEventHandler {
-        private const string GET_USB_DEVICES = @"SELECT * FROM Win32_DiskDrive WHERE InterfaceType LIKE 'USB%'";
+        private const string GET_USB_DEVICES = @"SELECT * FROM Win32_DiskDrive";
         private const string GET_PARTITIONS_TEMPLATE = "ASSOCIATORS OF {Win32_DiskDrive.DeviceID='{0}'} WHERE AssocClass = Win32_DiskDriveToDiskPartition";
         private const string GET_DISKS_TEMPLATE = "ASSOCIATORS OF {Win32_DiskPartition.DeviceID='{0}'} WHERE AssocClass = Win32_LogicalDiskToPartition";
         
@@ -26,6 +29,9 @@ namespace PvBackUps.FileEventHandles {
             _destinationPath = options.DestinationPath;
         }
 
+        /// <summary>
+        /// Handle rename event for file in specified folder 
+        /// </summary>
         public void OnRenamed(object sender, RenamedEventArgs e) {
             if (!TryGetDirectory(out _directoryInfo)) {
                 _logger.LogWarning("Can't create save folder: '{Path}'. So file '{File}' won't be saved to local storage!", _destinationPath, e.FullPath);
@@ -47,6 +53,9 @@ namespace PvBackUps.FileEventHandles {
             });
         }
         
+        /// <summary>
+        /// Try get Directory from directory path or/and storage serial number 
+        /// </summary>
         private bool TryGetDirectory(out DirectoryInfo directoryInfo) {
             if (_directoryInfo?.Exists ?? false) {
                 directoryInfo = _directoryInfo;
@@ -59,7 +68,7 @@ namespace PvBackUps.FileEventHandles {
                 return false;
             }
 
-            if(PathIsValid(in _destinationPath)) {
+            if(AbsolutePathIsValid(in _destinationPath)) {
                 directoryInfo = new DirectoryInfo(_destinationPath);
                 if (!Directory.Exists(_destinationPath)) {
                     directoryInfo.Create();
@@ -79,7 +88,7 @@ namespace PvBackUps.FileEventHandles {
             }
 
             var newDestinationPath = Path.Combine(letter, _destinationPath);
-            if(PathIsValid(in newDestinationPath)) {
+            if(AbsolutePathIsValid(in newDestinationPath)) {
                 _destinationPath = newDestinationPath;
                 directoryInfo = new DirectoryInfo(_destinationPath);
                 if (!Directory.Exists(_destinationPath)) {
@@ -90,8 +99,11 @@ namespace PvBackUps.FileEventHandles {
             return false;
         }
 
+        /// <summary>
+        /// Returns Drive letter for storageDevice, specified by SerialNumber (or it's part)  
+        /// </summary>
         private string GetDriveLetter(string deviceSerialNumber) {
-            using var deviceObject = GetObject(GET_USB_DEVICES, obj => ((string)obj["SerialNumber"]).StartsWith(deviceSerialNumber));
+            using var deviceObject = GetObject(GET_USB_DEVICES, obj => ((string)obj["SerialNumber"]).Contains(deviceSerialNumber));
             if (deviceObject == default) {
                 return null;
             }
@@ -111,19 +123,28 @@ namespace PvBackUps.FileEventHandles {
             return (string)diskObject["Caption"];
         }
 
+        /// <summary>
+        /// Return first ManagementObject from ManagementCollection (or null)
+        /// </summary>
         private static ManagementBaseObject GetObject(string query) {
             using var searcher = new ManagementObjectSearcher(query);
             using var collection = searcher.Get();
             return collection.FirstOrDefault();
         }
 
+        /// <summary>
+        /// Retunrs specific ManagementObject from ManagementCollection (or null)
+        /// </summary>
         private static ManagementBaseObject GetObject(string query, Func<ManagementBaseObject, bool> predicate) {
             using var searcher = new ManagementObjectSearcher(query);
             using var collection = searcher.Get();
             return collection.FirstOrDefault(predicate);
         }
 
-        private bool PathIsValid(in string path) {
+        /// <summary>
+        /// Check if absolute path is valid
+        /// </summary>
+        private bool AbsolutePathIsValid(in string path) {
             if (!path.Contains(":")) {
                 return false;
             }
