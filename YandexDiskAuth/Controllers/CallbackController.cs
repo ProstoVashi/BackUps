@@ -1,28 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using YandexDiskAuth.Services;
 
 namespace YandexDiskAuth.Controllers {
     [ApiController]
-    [Route("yd_auth/[controller]")]
+    [Route("06fb0f8630ac75b2515cc8d0862140d2172ad9b336886388c141e88ffe94fa6byd_auth/[controller]")]
     public class CallbackController : ControllerBase {
-        private readonly ILogger<CallbackController> _logger;
         private readonly AuthYandexService _authYandexService;
+        private readonly TokenHandlerService _tokenHandlerService;
 
-        public CallbackController(ILogger<CallbackController> logger, AuthYandexService authYandexService) {
-            _logger = logger;
+        public CallbackController(AuthYandexService authYandexService, TokenHandlerService tokenHandlerService) {
             _authYandexService = authYandexService;
+            _tokenHandlerService = tokenHandlerService;
         }
 
+        /// <summary>
+        /// Callback url for receive auth-code, that can be changed on token-info
+        /// </summary>
         [HttpGet("approve_code")]
         public async Task<IActionResult> HandleAuthCallback([FromQuery] string code) {
             var result = await _authYandexService.ExchangeCodeOnToken(code);
-            
-            return Ok($"Token was received? {result.Success}");
+            if (result.Success) {
+                var saveResult = _tokenHandlerService.WriteTokenInfo(result.TokenInfo);
+                return Ok($"Token was received! But saved? {saveResult}");
+            }
+            return Ok("Token was NOT received");
         }
 
         [HttpGet]

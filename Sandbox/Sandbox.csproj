@@ -17,4 +17,14 @@
       <PackageReference Include="System.Management" Version="5.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Tools\Tools.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Microsoft.Win32.Registry, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+        <HintPath>C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.13\Microsoft.Win32.Registry.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>

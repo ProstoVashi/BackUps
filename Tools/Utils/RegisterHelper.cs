@@ -13,7 +13,7 @@ namespace Tools.Utils {
         /// </summary>
         public static string? GetValue(this RegistryKey root, in string path) {
             ProcessRegistryPath(in path, out var subKeys, out var valueName);
-            return root.DeepWork(in subKeys, 0, false, reg => reg.GetValue(valueName).ToString());
+            return root.DeepWork(in subKeys, 0, false, reg => reg.GetValue(valueName)?.ToString());
         }
 
         /// <summary>
@@ -24,7 +24,6 @@ namespace Tools.Utils {
             return root.DeepWork(in subKeys, 0, true, reg => {
                                      try {
                                          reg.SetValue(valueName, value);
-
                                          return true;
                                      } catch {
                                          return false;
@@ -54,13 +53,14 @@ namespace Tools.Utils {
         /// <param name="work">Some foo, which result returns</param>
         private static T DeepWork<T>(this RegistryKey root, in string[] subKeys, int index, bool writable, Func<RegistryKey, T> work) {
             T result;
-            if (index == subKeys.Length - 1) {
+            if (index == subKeys.Length) {
                 result = work(root);
-
                 return result;
             }
 
-            using var node = root.OpenSubKey(subKeys[index], writable);
+            using var node = writable
+                ? root.OpenOrCreateSubKey(in subKeys[index])
+                : root.OpenSubKey(subKeys[index], false);
             if (node == null) {
                 return default;
             }
@@ -69,6 +69,10 @@ namespace Tools.Utils {
             node.Close();
 
             return result;
+        }
+
+        private static RegistryKey OpenOrCreateSubKey(this RegistryKey root, in string subKey, bool writable = true) {
+            return root.OpenSubKey(subKey, writable) ?? root.CreateSubKey(subKey, writable);
         }
     }
 }
