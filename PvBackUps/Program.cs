@@ -25,6 +25,7 @@ namespace PvBackUps {
                                       configureLogging.AddFilter<EventLogLoggerProvider>(
                                           level => level >= LogLevel.Information))
                 .ConfigureServices((hostContext, services) => {
+                    services.Configure<RemoteStorageSettings>(hostContext.Configuration.GetSection(nameof(RemoteStorageSettings)));
                     services.AddSingleton(opts);
                     services.AddHostedService<BackUpWorker>()
                             .Configure<EventLogSettings>(config => {
