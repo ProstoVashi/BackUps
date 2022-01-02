@@ -1,4 +1,6 @@
 ﻿using System.IO;
+using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -38,8 +40,9 @@ namespace PvBackUps.FileEventHandles {
             var client = RestSettings.GetClient(YD_BASE_URL)
                                      .AddDefaultHeader("Authorization", $"OAuth {token}");
             
-            //ToDo: check paths and create on null
-            await CheckAndRestoreSavePath();
+            if (await CheckAndRestoreSavePath(client)) {
+                return;
+            }
         }
 
         /// <summary>
@@ -51,8 +54,77 @@ namespace PvBackUps.FileEventHandles {
             return response.Data;
         }
 
-        private async Task CheckAndRestoreSavePath() {
+        /// <summary>
+        /// Check if path exists and try to create, if not.
+        /// </summary>
+        /// <returns>TRUE if path exists or was created, otherwise - FALSE</returns>
+        private async Task<bool> CheckAndRestoreSavePath(IRestClient client) {
+            var sb = new StringBuilder();
+            for (int i = 0; i < _yandexDiskSubPaths.Length; i++) {
+                sb.Append(_yandexDiskSubPaths[i]);
+                var path = sb.ToString();
+
+                var request = new RestRequest("resources", Method.GET)
+                              .AddQueryParameter("fields", "_embedded,name")
+                              .AddQueryParameter("path", path);
+
+                var response = await client.ExecuteAsync(request);
+                if (!response.IsSuccessful) {
+                    if (HandleCheckPathError(response)) {
+                        return await CreateFolder(client, sb, i);
+                    } else {
+                        return false;
+                    }   
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Goes through remain sub-paths and create YD-folders
+        /// </summary>
+        private async Task<bool> CreateFolder(IRestClient client,  StringBuilder sb, int index) {
+            var path = sb.ToString();
+            var request = new RestRequest("resources", Method.PUT)
+                .AddQueryParameter("path", path);
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful && !HandleCreateFolderError(response)) {
+                return false;
+            }
             
+            if (++index == _yandexDiskSubPaths.Length) {
+                return true;
+            }
+
+            sb.Append(_yandexDiskSubPaths[index]);
+            return await CreateFolder(client, sb, index);
+        }
+        
+        /// <summary>
+        /// Validate check path exists response error code: if NotFound - it's ok, go create
+        /// </summary>
+        private bool HandleCheckPathError(IRestResponse response) {
+            if (response.StatusCode == HttpStatusCode.NotFound) {
+                return true;
+            }
+            _logger.LogError("Check path exists failed with unexpected error code ['{StringCode}':{Code}]: {Message}",
+                             response.StatusCode.ToString(), response.StatusCode, response.Content);
+            return false;
+        }
+
+        /// <summary>
+        /// Validate create folder response error code: if Conflict - it's ok, it's already exists, skip it
+        /// </summary>
+        private bool HandleCreateFolderError(IRestResponse response) {
+            if (response.StatusCode == HttpStatusCode.Conflict) {
+                _logger.LogWarning("Try create path but it's already existed: {Message}", response.Content);
+                return true;
+            }
+            
+            _logger.LogError("Create folder failed with unexpected error code ['{StringCode}':{Code}]: {Message}",
+                             response.StatusCode.ToString(), response.StatusCode, response.Content);
+            return false;
         }
     }
+    
 }
