@@ -16,7 +16,7 @@ namespace Tools.Utils {
         
         public static IRestClient GetClient(in string url) {
             var client = new RestClient(url);
-            client.UseSystemTextJson(RestSettings.SerializerOptions);
+            client.UseSystemTextJson(SerializerOptions);
             return client;
         }
     }

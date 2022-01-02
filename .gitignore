@@ -352,3 +352,4 @@ MigrationBackup/
 #Custom
 *.idea*
 /YandexDiskAuth/appsettings.json
+/PvBackUps/appsettings.json

@@ -18,6 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\PvBackUps\PvBackUps.csproj" />
       <ProjectReference Include="..\Tools\Tools.csproj" />
     </ItemGroup>
 
