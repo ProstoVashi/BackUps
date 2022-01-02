@@ -5,7 +5,8 @@
       "dotnetRunMessages": "true",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
-      }
+      },
+      "commandLineArgs": "D:\\Temp\\source --diskSerial=1329731093753311648 --localDisk=Temp\\\\BackUps\\\\"
     }
   }
 }

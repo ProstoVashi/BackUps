@@ -1,11 +1,16 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PvBackUps.Configs;
 using PvBackUps.FileEventHandles.Interfaces;
+using PvBackUps.Responses;
 using RestSharp;
 using Tools.Utils;
 
@@ -40,9 +45,11 @@ namespace PvBackUps.FileEventHandles {
             var client = RestSettings.GetClient(YD_BASE_URL)
                                      .AddDefaultHeader("Authorization", $"OAuth {token}");
             
-            if (await CheckAndRestoreSavePath(client)) {
+            if (!await CheckAndRestoreSavePath(client)) {
                 return;
             }
+
+            await UploadFile(client, token, fileName, fullFileName);
         }
 
         /// <summary>
@@ -99,6 +106,41 @@ namespace PvBackUps.FileEventHandles {
             sb.Append(_yandexDiskSubPaths[index]);
             return await CreateFolder(client, sb, index);
         }
+
+        /// <summary>
+        /// Upload file
+        /// </summary>
+        private async Task<bool> UploadFile(IRestClient client, string token, string fileName, string fullFileName) {
+            var remoteFullFileName = $"{string.Join("", _yandexDiskSubPaths)}{fileName}";
+            var linkRequest = new RestRequest("resources/upload", Method.GET)
+                              .AddQueryParameter("path", remoteFullFileName)
+                              .AddQueryParameter("overwrite", "false");
+            var linkResponse = await client.ExecuteAsync(linkRequest);
+            if (!linkResponse.IsSuccessful) {
+                HandleUploadLinkError(linkResponse);
+                return false;
+            }
+
+            if (!TryParseUploadLinkResponse(linkResponse, out var link)) {
+                return false;
+            }
+            
+            var url = new Uri(link.Href);
+            var method = new HttpMethod(link.Method);
+            await using var fs = new FileStream(fullFileName, FileMode.Open, FileAccess.Read);
+            using var content = new StreamContent(fs);
+            using var requestMessage = new HttpRequestMessage(method, url) { Content = content };
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("OAuth", token);
+            httpClient.Timeout = TimeSpan.FromHours(6);
+            var uploadResponse = await httpClient.SendAsync(requestMessage).ConfigureAwait(false);
+
+            if (!uploadResponse.IsSuccessStatusCode) {
+                HandleUploadFileError(uploadResponse);
+            }
+
+            return uploadResponse.IsSuccessStatusCode;
+        }
         
         /// <summary>
         /// Validate check path exists response error code: if NotFound - it's ok, go create
@@ -124,6 +166,53 @@ namespace PvBackUps.FileEventHandles {
             _logger.LogError("Create folder failed with unexpected error code ['{StringCode}':{Code}]: {Message}",
                              response.StatusCode.ToString(), response.StatusCode, response.Content);
             return false;
+        }
+
+        /// <summary>
+        /// Try handle expected errors and log received one
+        /// </summary>
+        private void HandleUploadLinkError(IRestResponse response) {
+            switch (response.StatusCode) {
+                case HttpStatusCode.Forbidden:
+                case HttpStatusCode.InsufficientStorage: {
+                    _logger.LogWarning("Get upload link failed, as there is no enough space. ['{StringCode}':{Code}]: {Message}", 
+                                       response.StatusCode.ToString(), response.StatusCode, response.Content);
+                    return;
+                }
+                case HttpStatusCode.Conflict:
+                case HttpStatusCode.Locked:
+                case HttpStatusCode.TooManyRequests: {
+                    _logger.LogWarning("Get upload link failed, as it's already been in process or exists. ['{StringCode}':{Code}]: {Message}",
+                                       response.StatusCode.ToString(), response.StatusCode, response.Content);
+                    return;
+                }
+                default: {
+                    _logger.LogError("Get upload link failed with unexpected error code ['{StringCode}':{Code}]: {Message}",
+                                     response.StatusCode.ToString(), response.StatusCode, response.Content);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Validate UploadLink content and returns it if valid
+        /// </summary>
+        private bool TryParseUploadLinkResponse(IRestResponse response, out UploadLinkModel link) {
+            link = JsonSerializer.Deserialize<UploadLinkModel>(response.Content);
+            if (link == null || string.IsNullOrEmpty(link.Href) || string.IsNullOrEmpty(link.Method)) {
+                _logger.LogError("Can't parse UploadLink response content or content is invalid: {Message}", response.Content);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Log upload file result
+        /// </summary>
+        private void HandleUploadFileError(HttpResponseMessage response) {
+            _logger.LogError("Upload file failed with error code ['{StringCode}':{Code}]: {Message}",
+                             response.StatusCode.ToString(), response.StatusCode, response.Content);
         }
     }
     
