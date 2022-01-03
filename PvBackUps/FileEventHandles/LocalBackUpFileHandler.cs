@@ -41,7 +41,12 @@ namespace PvBackUps.FileEventHandles {
             _logger.LogInformation("Find directory '{Directory}' to save file '{File}'", _directoryInfo.FullName, e.Name);
             Task.Run(() => {
                 var destFileName = Path.Combine(_directoryInfo.FullName, e.Name!);
-                File.Copy(e.FullPath, destFileName, false);
+                try {
+                    File.Copy(e.FullPath, destFileName, false);
+                } catch (Exception ex){
+                    _logger.LogError("Local copy failed. May be file '{File}' has already existed", e.Name);
+                    throw;
+                }
                 return destFileName;
             }).ContinueWith(task => {
                 if (task.IsFaulted || task.IsCanceled) {

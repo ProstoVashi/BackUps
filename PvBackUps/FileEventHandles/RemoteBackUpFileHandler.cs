@@ -49,7 +49,11 @@ namespace PvBackUps.FileEventHandles {
                 return;
             }
 
-            await UploadFile(client, token, fileName, fullFileName);
+            if (await UploadFile(client, token, fileName, fullFileName)) {
+                _logger.LogInformation("File '{File}' successfully uploaded", fullFileName);
+            } else {
+                _logger.LogWarning("File '{File}' wasn't uploaded", fullFileName);
+            }
         }
 
         /// <summary>
