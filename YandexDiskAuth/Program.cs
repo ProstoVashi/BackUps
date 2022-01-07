@@ -1,12 +1,9 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Net;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Tools.Extensions;
 
 namespace YandexDiskAuth {
     public static class Program {
@@ -15,9 +12,16 @@ namespace YandexDiskAuth {
         }
 
         private static IHostBuilder CreateHostBuilder(string[] args) {
-            var hostPort = GetConfig().GetHostPort();
+            string executionPath = args.Length == 0 
+                ? Directory.GetCurrentDirectory() 
+                : args[0];
+            var configurationRoot = ConfigurationExtensions.GetConfigurationRoot(executionPath, "appsettings.json");
+            var hostPort = configurationRoot.Value<ushort>("HostSettings:Port"); 
+            
+            Console.WriteLine($"Current directory: {Directory.GetCurrentDirectory()}. Execution path: {executionPath}");
             
             return Host.CreateDefaultBuilder(args)
+                       .UseContentRoot(executionPath)
                        .ConfigureWebHostDefaults(webBuilder => {
                            webBuilder.UseStartup<Startup>()
                            .ConfigureKestrel((_, options) => {
@@ -27,17 +31,6 @@ namespace YandexDiskAuth {
                                options.Listen(IPAddress.Any, hostPort);
                            });
                        });
-        }
-        
-        private static IConfigurationRoot GetConfig() {
-            const string appSettingsConfigName = "appsettings";
-            return new ConfigurationBuilder()
-                   .AddJsonFile($"{appSettingsConfigName}.json", false, false)
-                   .Build();
-        }
-        
-        private static ushort GetHostPort(this IConfigurationRoot configuration) {
-            return configuration.GetValue<ushort>("HostSettings:Port");
         }
     }
 }

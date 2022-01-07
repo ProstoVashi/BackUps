@@ -3,7 +3,10 @@ using CommandLine;
 
 namespace PvBackUps.Configs {
     public class CommandLineOptions {
-        [Value(index: 0, Required = true, HelpText = "Path to search files")]
+        [Value(index: 0, Required = true, HelpText = "Path, where exe-file locates")]
+        public string ExecutivePath { get; set; }
+        
+        [Value(index: 1, Required = true, HelpText = "Path to search files")]
         public string SourcePath { get; set; }
         
         [Option(shortName: 'd', longName:"diskSerial", Required = false, HelpText = "Local disk serial number", Default = "")]

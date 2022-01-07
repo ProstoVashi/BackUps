@@ -32,6 +32,7 @@ namespace PvBackUps.FileEventHandles {
 
         public void OnRenamed(object sender, RenamedEventArgs e) {
             _logger.LogInformation("Remote storage handler started with file: {File}", e.FullPath);
+            _logger.LogInformation("Try connect to url: '{Url}'", _tokenReceiveUrl);
             TrySaveToStorage(e.Name, e.FullPath);
         }
 
