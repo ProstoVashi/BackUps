@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -25,6 +26,7 @@ namespace PvBackUps.FileEventHandles {
         
         public RemoteBackUpFileHandler(ILogger<RemoteBackUpFileHandler> logger, IOptions<RemoteStorageSettings> options) {
             _logger = logger;
+            
             var settings = options.Value;
             _tokenReceiveUrl = settings.TokenReceiveUrl;
             _yandexDiskSubPaths = settings.YandexDiskSubPaths;
@@ -33,11 +35,22 @@ namespace PvBackUps.FileEventHandles {
         public void OnRenamed(object sender, RenamedEventArgs e) {
             _logger.LogInformation("Remote storage handler started with file: {File}", e.FullPath);
             _logger.LogInformation("Try connect to url: '{Url}'", _tokenReceiveUrl);
-            TrySaveToStorage(e.Name, e.FullPath);
+
+            string? fileName = e.Name;
+            if (string.IsNullOrEmpty(fileName)) {
+                _logger.LogError("Invalid operation: handle file with empty name");
+                return;
+            }
+            
+            TrySaveToStorage(fileName, e.FullPath);
         }
 
+        /// <summary>
+        /// Try save file to remote storage 
+        /// </summary>
         private async void TrySaveToStorage(string fileName, string fullFileName) {
             var token = await GetTokenAsync();
+            
             if (string.IsNullOrEmpty(token)) {
                 _logger.LogError("Can't receive token to process remote save operation for file: '{File}'", fullFileName);
                 return;
@@ -46,11 +59,13 @@ namespace PvBackUps.FileEventHandles {
             var client = RestSettings.GetClient(YD_BASE_URL)
                                      .AddDefaultHeader("Authorization", $"OAuth {token}");
             
+            // Check if path exists and try to create, if not
             if (!await CheckAndRestoreSavePath(client)) {
                 return;
             }
 
-            if (await UploadFile(client, token, fileName, fullFileName)) {
+            // Try upload file
+            if (await TryUploadFile(client, token, fileName, fullFileName)) {
                 _logger.LogInformation("File '{File}' successfully uploaded", fullFileName);
             } else {
                 _logger.LogWarning("File '{File}' wasn't uploaded", fullFileName);
@@ -72,22 +87,24 @@ namespace PvBackUps.FileEventHandles {
         /// <returns>TRUE if path exists or was created, otherwise - FALSE</returns>
         private async Task<bool> CheckAndRestoreSavePath(IRestClient client) {
             var sb = new StringBuilder();
+            // Iterate through sub-paths and check if every of them exists
             for (int i = 0; i < _yandexDiskSubPaths.Length; i++) {
                 sb.Append(_yandexDiskSubPaths[i]);
                 var path = sb.ToString();
 
+                // Make request to check if path exists
                 var request = new RestRequest("resources", Method.GET)
                               .AddQueryParameter("fields", "_embedded,name")
                               .AddQueryParameter("path", path);
 
                 var response = await client.ExecuteAsync(request);
-                if (!response.IsSuccessful) {
-                    if (HandleCheckPathError(response)) {
-                        return await CreateFolder(client, sb, i);
-                    } else {
-                        return false;
-                    }   
+                
+                // If path exists, then go to next sub-path
+                if (response.IsSuccessful) {
+                    continue;
                 }
+                // In other case, handle the check-response fault reason and try to create path, if it's the mistake
+                return HandleCheckPathError(response) && await CreateFolder(client, sb, i);
             }
             return true;
         }
@@ -95,41 +112,53 @@ namespace PvBackUps.FileEventHandles {
         /// <summary>
         /// Goes through remain sub-paths and create YD-folders
         /// </summary>
-        private async Task<bool> CreateFolder(IRestClient client,  StringBuilder sb, int index) {
-            var path = sb.ToString();
-            var request = new RestRequest("resources", Method.PUT)
-                .AddQueryParameter("path", path);
-            var response = await client.ExecuteAsync(request);
-            if (!response.IsSuccessful && !HandleCreateFolderError(response)) {
-                return false;
+        private async Task<bool> CreateFolder(IRestClient client, StringBuilder sb, int index) {
+            while (index < _yandexDiskSubPaths.Length) {
+                var path = sb.ToString();
+                var request = new RestRequest("resources", Method.PUT).AddQueryParameter("path", path);
+
+                var response = await client.ExecuteAsync(request);
+
+                // If couldn't create folder and it's not because of it's already exists, then return false
+                if (!response.IsSuccessful && !HandleCreateFolderError(response)) {
+                    return false;
+                }
+
+                // If we created all sub-paths, then return true
+                if (++index == _yandexDiskSubPaths.Length) {
+                    return true;
+                }
+
+                // If we didn't create all sub-paths, then go to next sub-path
+                sb.Append(_yandexDiskSubPaths[index]);
             }
             
-            if (++index == _yandexDiskSubPaths.Length) {
-                return true;
-            }
-
-            sb.Append(_yandexDiskSubPaths[index]);
-            return await CreateFolder(client, sb, index);
+            // We created all sub-paths, then return true
+            return true;
         }
 
         /// <summary>
         /// Upload file
         /// </summary>
-        private async Task<bool> UploadFile(IRestClient client, string token, string fileName, string fullFileName) {
+        private async Task<bool> TryUploadFile(IRestClient client, string token, string fileName, string fullFileName) {
             var remoteFullFileName = $"{string.Join("", _yandexDiskSubPaths)}{fileName}";
             var linkRequest = new RestRequest("resources/upload", Method.GET)
                               .AddQueryParameter("path", remoteFullFileName)
                               .AddQueryParameter("overwrite", "false");
+            
+            // Get upload link
             var linkResponse = await client.ExecuteAsync(linkRequest);
             if (!linkResponse.IsSuccessful) {
                 HandleUploadLinkError(linkResponse);
                 return false;
             }
 
+            // Validate upload link response
             if (!TryParseUploadLinkResponse(linkResponse, out var link)) {
                 return false;
             }
-            
+
+            // Upload file
             var url = new Uri(link.Href);
             var method = new HttpMethod(link.Method);
             await using var fs = new FileStream(fullFileName, FileMode.Open, FileAccess.Read);
@@ -202,7 +231,7 @@ namespace PvBackUps.FileEventHandles {
         /// <summary>
         /// Validate UploadLink content and returns it if valid
         /// </summary>
-        private bool TryParseUploadLinkResponse(IRestResponse response, out UploadLinkModel link) {
+        private bool TryParseUploadLinkResponse(IRestResponse response, [MaybeNullWhen(false)] out UploadLinkModel link) {
             link = JsonSerializer.Deserialize<UploadLinkModel>(response.Content);
             if (link == null || string.IsNullOrEmpty(link.Href) || string.IsNullOrEmpty(link.Method)) {
                 _logger.LogError("Can't parse UploadLink response content or content is invalid: {Message}", response.Content);
@@ -217,7 +246,7 @@ namespace PvBackUps.FileEventHandles {
         /// </summary>
         private void HandleUploadFileError(HttpResponseMessage response) {
             _logger.LogError("Upload file failed with error code ['{StringCode}':{Code}]: {Message}",
-                             response.StatusCode.ToString(), response.StatusCode, response.Content);
+                             response.StatusCode.ToString(), response.StatusCode, response.Content.ToString());
         }
     }
     

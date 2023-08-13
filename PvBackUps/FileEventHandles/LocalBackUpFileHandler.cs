@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Management;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ namespace PvBackUps.FileEventHandles {
         private readonly string _diskSerialNumber;
         private string _destinationPath;
         
-        private DirectoryInfo _directoryInfo;
+        private DirectoryInfo? _directoryInfo;
 
         public LocalBackUpFileHandler(ILogger<LocalBackUpFileHandler> logger, CommandLineOptions options) {
             _logger = logger;
@@ -33,18 +34,24 @@ namespace PvBackUps.FileEventHandles {
         /// Handle rename event for file in specified folder 
         /// </summary>
         public void OnRenamed(object sender, RenamedEventArgs e) {
-            if (!TryGetDirectory(out _directoryInfo)) {
+            if (!TryGetDestinationDirectory(out _directoryInfo)) {
                 _logger.LogWarning("Can't create save folder: '{Path}'. So file '{File}' won't be saved to local storage!", _destinationPath, e.FullPath);
                 return;
             }
             
             _logger.LogInformation("Find directory '{Directory}' to save file '{File}'", _directoryInfo.FullName, e.Name);
+            
+            // Run in new thread to not block FileSystemWatcher
             Task.Run(() => {
                 var destFileName = Path.Combine(_directoryInfo.FullName, e.Name!);
                 try {
-                    File.Copy(e.FullPath, destFileName, false);
+                    if(File.Exists(destFileName)) {
+                        _logger.LogWarning("File '{DestinationFile}' will be overwritten", destFileName);
+                    }
+                    
+                    File.Copy(e.FullPath, destFileName, true);
                 } catch (Exception ex){
-                    _logger.LogError("Local copy failed. May be file '{File}' has already existed", e.Name);
+                    _logger.LogError("Local copy '{File}' failed with exception {Exception}", e.Name, ex.Message);
                     throw;
                 }
                 return destFileName;
@@ -61,18 +68,21 @@ namespace PvBackUps.FileEventHandles {
         /// <summary>
         /// Try get Directory from directory path or/and storage serial number 
         /// </summary>
-        private bool TryGetDirectory(out DirectoryInfo directoryInfo) {
+        private bool TryGetDestinationDirectory([MaybeNullWhen((false))] out DirectoryInfo directoryInfo) {
+            // If we previously found directory, then return it
             if (_directoryInfo?.Exists ?? false) {
                 directoryInfo = _directoryInfo;
                 return true;
             }
             
+            // If we DON'T have destination path, then return false
             directoryInfo = null;
             if (string.IsNullOrEmpty(_destinationPath)) {
                 _logger.LogWarning("Local save folder is empty!");
                 return false;
             }
 
+            // Is destination path is valid, then return it
             if(AbsolutePathIsValid(in _destinationPath)) {
                 directoryInfo = new DirectoryInfo(_destinationPath);
                 if (!Directory.Exists(_destinationPath)) {
@@ -80,19 +90,28 @@ namespace PvBackUps.FileEventHandles {
                 }
                 return true;
             }
+            
+            // In this way we try combine path with disk letter. Disk-letter will be found by disk serial number
 
+            // If we DON'T have disk serial number, then return false
             if (string.IsNullOrEmpty(_diskSerialNumber)) {
-                _logger.LogWarning("Disk serial number uis empty. Can't create save folder!");
+                _logger.LogWarning("Disk serial number is empty. Can't create save folder!");
                 return false;
             }
 
-            var letter = GetDriveLetter(_diskSerialNumber).Trim();
+            // Try find disk letter by disk serial number
+            var letter = GetDriveLetter(_diskSerialNumber)?.Trim();
+            
+            // If we DON'T have disk letter, then return false
             if (string.IsNullOrEmpty(letter)) {
                 _logger.LogWarning("Can't find USB drive with specified SerialNumber");
                 return false;
             }
 
+            // Combine path with disk letter
             var newDestinationPath = Path.Combine(letter, _destinationPath);
+            
+            // If new destination path is valid, then return it
             if(AbsolutePathIsValid(in newDestinationPath)) {
                 _destinationPath = newDestinationPath;
                 directoryInfo = new DirectoryInfo(_destinationPath);
@@ -107,12 +126,14 @@ namespace PvBackUps.FileEventHandles {
         /// <summary>
         /// Returns Drive letter for storageDevice, specified by SerialNumber (or it's part)  
         /// </summary>
-        private string GetDriveLetter(string deviceSerialNumber) {
+        private static string? GetDriveLetter(string deviceSerialNumber) {
+            // Try find device by serial number
             using var deviceObject = GetObject(GET_USB_DEVICES, obj => ((string)obj["SerialNumber"]).Contains(deviceSerialNumber));
             if (deviceObject == default) {
                 return null;
             }
             
+            // Try find partition by device id
             var deviceId =  (string)deviceObject["DeviceID"];
             string partitionsRequest = GET_PARTITIONS_TEMPLATE.Replace("{0}", deviceId);
             using var partitionObject = GetObject(partitionsRequest);
@@ -120,6 +141,7 @@ namespace PvBackUps.FileEventHandles {
                 return null;
             }
             
+            // Try find disk by partition id
             string disksRequest = GET_DISKS_TEMPLATE.Replace("{0}", (string)partitionObject["DeviceID"]);
             using var diskObject = GetObject(disksRequest);
             if (diskObject == default) {
@@ -131,7 +153,7 @@ namespace PvBackUps.FileEventHandles {
         /// <summary>
         /// Return first ManagementObject from ManagementCollection (or null)
         /// </summary>
-        private static ManagementBaseObject GetObject(string query) {
+        private static ManagementBaseObject? GetObject(string query) {
             using var searcher = new ManagementObjectSearcher(query);
             using var collection = searcher.Get();
             return collection.FirstOrDefault();
@@ -140,7 +162,7 @@ namespace PvBackUps.FileEventHandles {
         /// <summary>
         /// Retunrs specific ManagementObject from ManagementCollection (or null)
         /// </summary>
-        private static ManagementBaseObject GetObject(string query, Func<ManagementBaseObject, bool> predicate) {
+        private static ManagementBaseObject? GetObject(string query, Func<ManagementBaseObject, bool> predicate) {
             using var searcher = new ManagementObjectSearcher(query);
             using var collection = searcher.Get();
             return collection.FirstOrDefault(predicate);
@@ -150,7 +172,7 @@ namespace PvBackUps.FileEventHandles {
         /// Check if absolute path is valid
         /// </summary>
         private bool AbsolutePathIsValid(in string path) {
-            if (!path.Contains(":")) {
+            if (!path.Contains(':')) {
                 return false;
             }
             try {

@@ -27,15 +27,21 @@ namespace PvBackUps {
             _watcher = new FileSystemWatcher {
                 Path = options.SourcePath
             };
+            
+            // Add required extensions to filter
             foreach (var fileExtension in options.Extensions) {
                 _watcher.Filters.Add($"*.{fileExtension}");
             }
 
+            // save extensions
             _extensions = options.Extensions;
+            // save concatenated extensions for logging
             _concatenatedExtensions = $"[{string.Join(',', _extensions)}]";
             
+            // Create all file event handlers
             _fileEventHandlers = fileEventHandlerResolver();
             
+            // Add event handler for file-rename event
             _watcher.Renamed += OnRenamed;  
         }
         
@@ -46,10 +52,12 @@ namespace PvBackUps {
             _logger.LogInformation("Service started");
             _watcher.EnableRaisingEvents = true;
 
+            // Wait for stop signal
             var tcs = new TaskCompletionSource<bool>();
             stoppingToken.Register(s => ((TaskCompletionSource<bool>)s).SetResult(true), tcs);
+            
+            // Run our task
             await tcs.Task;
-
             
             _logger.LogInformation("Service stopped");
         }
@@ -58,12 +66,18 @@ namespace PvBackUps {
         /// Handle fire-rename event. Check appropriate extensions and notifies 
         /// </summary>
         private void OnRenamed(object sender, RenamedEventArgs e) {
+            // handle extension of changed file
             var extension = e.FullPath.Split('.').Last();
+            
+#if DEBUG
             if (!_extensions.Contains(extension)) {
-                _logger.LogInformation("Handle rename from '{OldName}' to '{NewName}', but extension is not appropriate {Extensions}",
-                    e.OldFullPath, e.FullPath, _concatenatedExtensions);
+                _logger.LogInformation(
+                    "Handle rename from '{OldName}' to '{NewName}', but extension is not appropriate {Extensions}",
+                    e.OldFullPath, e.FullPath, _concatenatedExtensions
+                    );
                 return;
             }
+#endif
             
             foreach (var eventHandler in _fileEventHandlers) {
                 eventHandler.OnRenamed(sender, e);
@@ -72,9 +86,10 @@ namespace PvBackUps {
 
         public override void Dispose() {
             _watcher.Dispose();
+            
             foreach (var eventHandler in _fileEventHandlers) {
-                if (eventHandler is IDisposable disposable) {
-                    disposable.Dispose();
+                if (eventHandler is IDisposable disposableEventHandler) {
+                    disposableEventHandler.Dispose();
                 }
             }
             base.Dispose();

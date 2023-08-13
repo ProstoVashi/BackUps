@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
     <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
+        <TargetFramework>net7.0-windows</TargetFramework>
         <UserSecretsId>dotnet-PvBackUps-4EDC5B4C-6571-4509-8F1B-DEA652304756</UserSecretsId>
+        <LangVersion>default</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
